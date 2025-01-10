@@ -8,6 +8,12 @@ check_for_errors() {
     fi
 }
 
+# Ensure script is run as root
+if [ "$EUID" -ne 0 ]; then
+    echo "This script must be run as root. Exiting."
+    exit 1
+fi
+
 # Open the file with nano and edit
 FILE="/etc/ufw/before.rules"
 
@@ -61,4 +67,13 @@ echo "Restarting UFW."
 ufw disable && ufw enable
 check_for_errors
 
+# Setup cron job for automatic execution on server
+CRON_JOB="@reboot root /path/to/this/script.sh"
+CRON_FILE="/etc/cron.d/ufw_config"
+
+echo "$CRON_JOB" > "$CRON_FILE"
+chmod 644 "$CRON_FILE"
+check_for_errors
+
+echo "Cron job added to execute script on reboot."
 echo "Script executed successfully for Ubuntu 24."
