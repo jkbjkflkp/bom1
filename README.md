@@ -4,6 +4,7 @@
          
          wget https://raw.githubusercontent.com/jkbjkflkp/bom1/refs/heads/main/secure_vps_menu.sh -O secure_vps_menu.sh
          chmod +x secure_vps_menu.sh
+         sed -i 's/\r//' ./secure_vps_menu.sh
          sudo ./secure_vps_menu.sh
 
 для версии 0.1
