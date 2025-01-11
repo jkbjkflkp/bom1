@@ -5,3 +5,8 @@
          wget https://raw.githubusercontent.com/jkbjkflkp/bom1/refs/heads/main/secure_vps_menu.sh -O secure_vps_menu.sh
          chmod +x secure_vps_menu.sh
          sudo ./secure_vps_menu.sh
+
+
+         wget https://raw.githubusercontent.com/jkbjkflkp/bom1/refs/heads/main/secure_vps_menu v.0.1 -O secure_vps_menu v.0.1
+         chmod +x secure_vps_menu v.0.1
+         sudo ./secure_vps_menu v.0.1
