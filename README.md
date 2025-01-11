@@ -7,8 +7,9 @@
          sed -i 's/\r//' ./secure_vps_menu.sh
          sudo ./secure_vps_menu.sh
 
-для версии 0.1
+для версии 0.2
 
-         wget https://raw.githubusercontent.com/jkbjkflkp/bom1/refs/heads/main/secure_vps_menu v.0.1 -O secure_vps_menu v.0.1
-         chmod +x secure_vps_menu v.0.1
-         sudo ./secure_vps_menu v.0.1
+         wget https://raw.githubusercontent.com/jkbjkflkp/bom1/refs/heads/main/secure_vps_menu%20v.0.2.sh -O secure_vps_menu%20v.0.2.sh
+     chmod +x secure_vps_menu%20v.0.2.sh
+     sed -i 's/\r//' ./secure_vps_menu%20v.0.2.sh
+     sudo ./secure_vps_menu%20v.0.2.sh
