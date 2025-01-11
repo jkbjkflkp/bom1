@@ -5,6 +5,13 @@
 #  Бом (меню-версия с help)
 #######################################################
 
+# Проверка, что скрипт запущен под root
+if [ "$EUID" -ne 0 ]; then
+    echo "Пожалуйста, запустите скрипт под root."
+    echo "Например: sudo ./secure_vps_menu_root.sh"
+    exit 1
+fi
+
 # ------------------------------------------------
 # 1. Функция вывода справки (usage)
 # ------------------------------------------------
@@ -15,7 +22,8 @@ function print_help() {
     echo "  -h, --help        Показать эту справку и выйти"
     echo
     echo "Этот скрипт предоставляет меню для настройки безопасности сервера."
-    echo "Вы можете работать локально или через SSH."
+    echo "Скрипт должен выполняться от root (без запроса sudo-пароля)."
+    echo
     echo "Основные возможности:"
     echo "  1) Обновить систему"
     echo "  2) Изменить пароль root"
@@ -27,10 +35,9 @@ function print_help() {
     echo "  8) Управление сервисами (например, qemu-guest-agent)"
     echo
     echo "Пример запуска:"
-    echo "  $0                # обычный запуск, скрипт спросит режим (local/ssh) и откроет меню"
+    echo "  $0                # (если вы уже под root)"
+    echo "  sudo $0           # или sudo, чтобы стать root"
     echo "  $0 --help         # вывод справки и завершение"
-    echo
-    echo "После запуска вы попадёте в меню, где сможете выбрать конкретные действия."
     echo
 }
 
@@ -97,25 +104,21 @@ function validate_password() {
         valid=false
     fi
 
-    # Наличие строчных (латинских/русских)
     if ! echo "$password" | grep -qP "[a-zа-я]"; then
         echo "Пароль должен содержать хотя бы одну букву нижнего регистра (латинскую или русскую)."
         valid=false
     fi
 
-    # Наличие заглавных (латинских/русских)
     if ! echo "$password" | grep -qP "[A-ZА-Я]"; then
         echo "Пароль должен содержать хотя бы одну букву верхнего регистра (латинскую или русскую)."
         valid=false
     fi
 
-    # Наличие цифр
     if ! echo "$password" | grep -qP "[0-9]"; then
         echo "Пароль должен содержать хотя бы одну цифру."
         valid=false
     fi
 
-    # Наличие спецсимвола
     if ! echo "$password" | grep -qP "[[:punct:]]"; then
         echo "Пароль должен содержать хотя бы один специальный символ."
         valid=false
@@ -145,7 +148,7 @@ function change_user_password() {
         fi
         break
     done
-    run_command "echo '$username:$password' | sudo chpasswd"
+    run_command "echo '$username:$password' | chpasswd"
     if [ $? -eq 0 ]; then
         echo "Пароль для пользователя $username успешно изменен."
     else
@@ -158,7 +161,7 @@ function change_user_password() {
 # ------------------------------------------------
 function add_user_nopasswd() {
     local username=$1
-    run_command "echo '$username ALL=(ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/$username"
+    run_command "echo '$username ALL=(ALL) NOPASSWD:ALL' | tee /etc/sudoers.d/$username"
     echo "Пользователь $username может выполнять sudo без пароля."
 }
 
@@ -167,7 +170,7 @@ function add_user_nopasswd() {
 # ------------------------------------------------
 function remove_user_nopasswd() {
     local username=$1
-    run_command "sudo rm -f /etc/sudoers.d/$username"
+    run_command "rm -f /etc/sudoers.d/$username"
     echo "У пользователя $username убраны права sudo без пароля."
 }
 
@@ -179,9 +182,9 @@ function create_user() {
     local password=$2
     local nopass=$3
 
-    run_command "sudo adduser --disabled-password --gecos '' $username"
-    run_command "echo '$username:$password' | sudo chpasswd"
-    run_command "sudo usermod -aG sudo $username"
+    run_command "adduser --disabled-password --gecos '' $username"
+    run_command "echo '$username:$password' | chpasswd"
+    run_command "usermod -aG sudo $username"
     if [ "$nopass" == "yes" ]; then
         add_user_nopasswd "$username"
     fi
@@ -193,9 +196,9 @@ function create_user() {
 # ------------------------------------------------
 function restart_ssh_service() {
     if run_command "systemctl list-units --type=service | grep -q sshd.service"; then
-        run_command "sudo systemctl restart sshd"
+        run_command "systemctl restart sshd"
     else
-        run_command "sudo systemctl restart ssh"
+        run_command "systemctl restart ssh"
     fi
 }
 
@@ -215,9 +218,9 @@ function validate_ssh_port() {
 #  Отключить ufw, если активен
 # ------------------------------------------------
 function disable_ufw_if_active() {
-    if run_command "sudo ufw status | grep -q 'Status: active'"; then
+    if run_command "ufw status | grep -q 'Status: active'"; then
         echo "UFW активен. Отключаем UFW перед сменой порта SSH."
-        run_command "sudo ufw disable"
+        run_command "ufw disable"
     fi
 }
 
@@ -226,17 +229,17 @@ function disable_ufw_if_active() {
 # ------------------------------------------------
 function update_system() {
     echo "Обновляем систему..."
-    run_command "echo '* libraries/restart-without-asking boolean true' | sudo debconf-set-selections"
-    run_command "echo 'grub-pc grub-pc/install_devices multiselect /dev/sda' | sudo debconf-set-selections"
-    run_command "echo 'grub-pc grub-pc/install_devices_disks_changed multiselect /dev/sda' | sudo debconf-set-selections"
-    run_command "echo 'linux-base linux-base/removing-title2 boolean true' | sudo debconf-set-selections"
-    run_command "echo 'linux-base linux-base/removing-title boolean true' | sudo debconf-set-selections"
+    run_command "echo '* libraries/restart-without-asking boolean true' | debconf-set-selections"
+    run_command "echo 'grub-pc grub-pc/install_devices multiselect /dev/sda' | debconf-set-selections"
+    run_command "echo 'grub-pc grub-pc/install_devices_disks_changed multiselect /dev/sda' | debconf-set-selections"
+    run_command "echo 'linux-base linux-base/removing-title2 boolean true' | debconf-set-selections"
+    run_command "echo 'linux-base linux-base/removing-title boolean true' | debconf-set-selections"
 
     run_command "DEBIAN_FRONTEND=noninteractive apt update && DEBIAN_FRONTEND=noninteractive apt upgrade -yq"
     run_command "DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold' dist-upgrade -yq"
     run_command "DEBIAN_FRONTEND=noninteractive apt install -y unattended-upgrades"
-    run_command "sudo dpkg-reconfigure -f noninteractive unattended-upgrades"
-    run_command "sudo DEBIAN_FRONTEND=noninteractive unattended-upgrade"
+    run_command "dpkg-reconfigure -f noninteractive unattended-upgrades"
+    run_command "DEBIAN_FRONTEND=noninteractive unattended-upgrade"
 
     echo "Обновление завершено."
 }
@@ -260,7 +263,7 @@ function change_root_password_menu() {
         break
     done
 
-    run_command "echo 'root:$ROOT_PASSWORD' | sudo chpasswd"
+    run_command "echo 'root:$ROOT_PASSWORD' | chpasswd"
     if [ $? -eq 0 ]; then
         echo "Пароль root успешно изменен."
     else
@@ -284,16 +287,13 @@ function manage_users() {
 
         case "$user_choice" in
             1)
-                # Создать нового пользователя
                 while true; do
                     read -p "Введите имя пользователя: " username
                     validate_username "$username" || continue
-                    # Проверим, не существует ли уже
                     if id "$username" &>/dev/null; then
                         echo "Пользователь $username уже существует."
                         break
                     fi
-                    # Ввести пароль
                     local password password_confirm
                     while true; do
                         read -s -p "Введите пароль: " password
@@ -319,7 +319,6 @@ function manage_users() {
                 done
                 ;;
             2)
-                # Изменить пароль
                 read -p "Введите имя пользователя: " username
                 if id "$username" &>/dev/null; then
                     change_user_password "$username"
@@ -328,10 +327,9 @@ function manage_users() {
                 fi
                 ;;
             3)
-                # Добавить/убрать sudo без пароля
                 read -p "Введите имя пользователя: " username
                 if id "$username" &>/dev/null; then
-                    if sudo grep -q "$username ALL=(ALL) NOPASSWD:ALL" /etc/sudoers.d/* 2>/dev/null; then
+                    if grep -q "$username ALL=(ALL) NOPASSWD:ALL" /etc/sudoers.d/* 2>/dev/null; then
                         echo "У пользователя $username уже есть sudo без пароля."
                         read -p "Убрать эти права? (yes/no): " remove_it
                         if [[ "$remove_it" =~ ^(yes|y)$ ]]; then
@@ -363,7 +361,7 @@ function manage_users() {
 # ------------------------------------------------
 function configure_root_ssh() {
     local ROOT_SSH_STATUS
-    ROOT_SSH_STATUS=$(run_command "sudo grep '^PermitRootLogin' /etc/ssh/sshd_config")
+    ROOT_SSH_STATUS=$(run_command "grep '^PermitRootLogin' /etc/ssh/sshd_config")
 
     echo "Текущее значение: $ROOT_SSH_STATUS"
     echo "1) Разрешить root по SSH"
@@ -372,12 +370,12 @@ function configure_root_ssh() {
     read -p "Выберите пункт: " choice
     case "$choice" in
         1)
-            run_command "sudo sed -i 's/PermitRootLogin no/PermitRootLogin yes/' /etc/ssh/sshd_config"
+            run_command "sed -i 's/PermitRootLogin no/PermitRootLogin yes/' /etc/ssh/sshd_config"
             restart_ssh_service
             echo "Root по SSH разрешён."
             ;;
         2)
-            run_command "sudo sed -i 's/PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config"
+            run_command "sed -i 's/PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config"
             restart_ssh_service
             echo "Root по SSH запрещён."
             ;;
@@ -403,9 +401,9 @@ function change_ssh_port_menu() {
     if validate_ssh_port "$NEW_SSH_PORT"; then
         disable_ufw_if_active
         if run_command "grep -q '^Port' /etc/ssh/sshd_config"; then
-            run_command "sudo sed -i 's/^Port.*/Port $NEW_SSH_PORT/' /etc/ssh/sshd_config"
+            run_command "sed -i 's/^Port.*/Port $NEW_SSH_PORT/' /etc/ssh/sshd_config"
         else
-            run_command "echo 'Port $NEW_SSH_PORT' | sudo tee -a /etc/ssh/sshd_config"
+            run_command "echo 'Port $NEW_SSH_PORT' >> /etc/ssh/sshd_config"
         fi
         restart_ssh_service
         echo "Порт SSH изменён на $NEW_SSH_PORT."
@@ -418,11 +416,11 @@ function change_ssh_port_menu() {
 # 6) Настройка ufw
 # ------------------------------------------------
 function configure_ufw() {
-    run_command "sudo apt install -yq ufw"
+    run_command "apt install -yq ufw"
     read -p "Введите SSH-порт, который нужно разрешить (по умолчанию 22): " port
     [ -z "$port" ] && port=22
-    run_command "sudo ufw allow $port/tcp"
-    run_command "sudo ufw enable"
+    run_command "ufw allow $port/tcp"
+    run_command "ufw enable"
     echo "ufw настроен и включен."
 }
 
@@ -430,14 +428,14 @@ function configure_ufw() {
 # 7) Настройка fail2ban
 # ------------------------------------------------
 function configure_fail2ban() {
-    run_command "sudo apt install -yq fail2ban"
-    run_command "sudo systemctl enable fail2ban"
-    run_command "sudo systemctl start fail2ban"
+    run_command "apt install -yq fail2ban"
+    run_command "systemctl enable fail2ban"
+    run_command "systemctl start fail2ban"
 
     read -p "Введите SSH-порт, который нужно прописать в fail2ban (по умолчанию 22): " port
     [ -z "$port" ] && port=22
 
-    run_command "sudo bash -c 'cat <<EOT > /etc/fail2ban/jail.local
+    run_command "bash -c 'cat <<EOT > /etc/fail2ban/jail.local
 [sshd]
 enabled = true
 port = $port
@@ -446,7 +444,7 @@ logpath = /var/log/auth.log
 maxretry = 5
 EOT'"
 
-    run_command "sudo systemctl restart fail2ban"
+    run_command "systemctl restart fail2ban"
     echo "fail2ban установлен и настроен."
 }
 
@@ -457,16 +455,16 @@ function manage_services() {
     local SERVICES=("qemu-guest-agent")
     for service in "${SERVICES[@]}"; do
         if dpkg -l | grep -qw "$service"; then
-            SERVICE_STATUS=$(run_command "sudo systemctl is-active $service")
+            SERVICE_STATUS=$(run_command "systemctl is-active $service")
             echo "Сервис $service найден, статус: $SERVICE_STATUS"
             if [ "$SERVICE_STATUS" == "active" ]; then
                 echo "1) Остановить, отключить и замаскировать"
                 echo "2) Оставить как есть"
                 read -p "Ваш выбор (1/2)? " svc_choice
                 if [ "$svc_choice" == "1" ]; then
-                    run_command "sudo systemctl stop $service"
-                    run_command "sudo systemctl disable $service"
-                    run_command "sudo systemctl mask $service"
+                    run_command "systemctl stop $service"
+                    run_command "systemctl disable $service"
+                    run_command "systemctl mask $service"
                     echo "$service остановлен, отключён и замаскирован."
                 fi
             else
@@ -475,9 +473,9 @@ function manage_services() {
                 echo "2) Оставить как есть"
                 read -p "Ваш выбор (1/2)? " svc_choice
                 if [ "$svc_choice" == "1" ]; then
-                    run_command "sudo systemctl unmask $service"
-                    run_command "sudo systemctl enable $service"
-                    run_command "sudo systemctl start $service"
+                    run_command "systemctl unmask $service"
+                    run_command "systemctl enable $service"
+                    run_command "systemctl start $service"
                     echo "$service включён и активен."
                 fi
             fi
@@ -516,8 +514,16 @@ function main() {
         exit 0
     fi
 
-    # Спросим режим работы
-    read -p "Выберите режим работы (local/ssh): " MODE
+    # --- Добавляем описание перед выбором режима ---
+    echo "Выберите режим работы:"
+    echo " - local: если вы уже вошли на сервер (под root или с sudo) и хотите настроить именно эту машину."
+    echo " - ssh:   если вы хотите, чтобы скрипт подключался к другому серверу по SSH."
+    echo
+
+    # Здесь слово "local" будет зелёным, и добавляем уточнение про нажатие Enter
+    echo -en "Введите \e[32mlocal\e[0m или ssh (затем нажмите Enter, чтобы продолжить): "
+    read MODE
+
     if [ "$MODE" == "ssh" ]; then
         if [ -z "$SSH_HOST" ]; then
             read -p "Введите хост SSH: " SSH_HOST
@@ -537,7 +543,6 @@ function main() {
         MODE="local"
     fi
 
-    # Запускаем «вечное» меню
     while true; do
         show_menu
         read -p "Выберите пункт: " choice
