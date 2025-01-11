@@ -6,13 +6,17 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
+# Устанавливаем локаль для совместимости с командами
+export LANG=C
+
 # Переменная для пути к файлу (можно передать как аргумент)
 RULES_FILE=${1:-/etc/ufw/before.rules}
 
 # Проверяем, существует ли файл before.rules
 if [ ! -f "$RULES_FILE" ]; then
-    echo "Файл $RULES_FILE не найден. Завершение."
-    exit 1
+    echo "Файл $RULES_FILE не найден. Нажмите Enter для завершения работы."
+    read -r
+    exit 0
 fi
 
 # Проверяем, что путь соответствует ожидаемому файлу
@@ -30,6 +34,12 @@ fi
 # Проверяем доступность UFW
 if ! command -v ufw &> /dev/null; then
     echo "UFW не установлен. Установите его и попробуйте снова."
+    exit 1
+fi
+
+# Проверяем файловую систему на совместимость с записью
+if df "$RULES_FILE" | grep -q "squashfs"; then
+    echo "Файловая система не поддерживает запись. Переместите файл на поддерживаемую файловую систему."
     exit 1
 fi
 
@@ -81,7 +91,8 @@ sed -i '/# ok icmp codes for INPUT/,/# ok icmp codes for FORWARD/{s/ACCEPT/DROP/
 check_errors
 
 # Проверяем свободное место перед применением UFW
-if [ "$(df "$RULES_FILE" | tail -1 | awk '{print $4}')" -lt 1024 ]; then
+FREE_SPACE=$(stat -f --format="%a*%S" "$RULES_FILE" | bc)
+if [ "$FREE_SPACE" -lt 1024 ]; then
     echo "Недостаточно места для выполнения операций. Освободите место и попробуйте снова."
     exit 1
 fi
@@ -99,6 +110,11 @@ fi
 
 # Логирование действий
 LOGFILE="/var/log/update_ufw_rules.log"
+if [ ! -w "/var/log" ]; then
+    LOGFILE="./update_ufw_rules.log"
+    echo "Каталог /var/log недоступен. Логи будут сохранены в $LOGFILE."
+fi
+
 echo "$(date): Создана резервная копия $BACKUP_FILE" >> "$LOGFILE"
 echo "$(date): Строка -A ufw-before-input -p icmp --icmp-type source-quench -j DROP добавлена." >> "$LOGFILE"
 echo "$(date): Заменены ACCEPT на DROP в блоках." >> "$LOGFILE"
