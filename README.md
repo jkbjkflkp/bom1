@@ -28,3 +28,10 @@ Secure VPS Setup Script
      chmod +x secure_vps_menu%20v.0.2.sh
      sed -i 's/\r//' ./secure_vps_menu%20v.0.2.sh
      sudo ./secure_vps_menu%20v.0.2.sh
+
+Для запуска скрипта BBR v.0.1.
+
+     wget https://raw.githubusercontent.com/jkbjkflkp/bom1/refs/heads/main/BBR%20v.0.1.sh -O BBR%20v.0.1.sh
+     chmod +x BBR%20v.0.1.sh
+     sed -i 's/\r//' ./BBR%20v.0.1.sh
+     sudo ./BBR%20v.0.1.sh
