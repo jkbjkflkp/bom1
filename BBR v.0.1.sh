@@ -60,7 +60,7 @@ function main_menu {
         echo "Главное меню:"
         echo "1) Включить BBR"
         echo "2) Выключить BBR"
-        echo "3) Настройка BBR с выбором типа нагрузки для VLESS"
+        echo "3) Настройка BBR с выбором типа сетевой нагрузки на сервер"
         echo "4) Сервис и Восстановление"
         echo "5) Выход"
         read -p "Введите номер действия (1/2/3/4/5): " action_choice
@@ -92,13 +92,15 @@ function load_type_menu {
         echo "Выберите тип нагрузки для VLESS:"
         echo "1) Короткие соединения (например, веб-серфинг, API)"
         echo "2) Длительные соединения (например, потоковая передача: YouTube, Discord, VoIP)"
-        echo "3) Вернуться в главное меню"
+        echo "3) Дефолтные настройки"
+        echo "4) Вернуться в главное меню"
         read -p "Введите номер (1, 2 или 3): " load_type
 
         case $load_type in
             1) apply_short_connections_settings ;;
             2) apply_long_connections_settings ;;
-            3) return ;;
+            3) 
+            4) return ;;
             *) echo "Неверный выбор. Попробуйте снова."
                continue ;;
         esac
