@@ -106,7 +106,7 @@ function configure_long_connections {
         shift
         backup_file "$file"
         for setting in "$@"; do
-            sudo sed -i "/^$setting/d" "$file"
+            sudo sed -i "/^\\$setting/d" "$file"
             if [[ $? -ne 0 ]]; then
                 echo "Ошибка при удалении настроек из $file" | sudo tee -a "$log_file"
                 exit 1
