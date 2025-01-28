@@ -564,7 +564,8 @@ function forbid_ping() {
     if sudo grep -q "-A ufw-before-input -p icmp --icmp-type source-quench -j DROP" "$RULES_FILE"; then
     log "Строка уже существует, пропускаем добавление."
     else
-    sudo sed -i '/# ok icmp codes for INPUT/a -A ufw-before-input -p icmp --icmp-type source-quench -j DROP' "$RULES_FILE"
+    sudo sed -i '/# ok icmp codes for INPUT/a \
+-A ufw-before-input -p icmp --icmp-type source-quench -j DROP' "$RULES_FILE"
     check_errors
     # Проверяем, что строка была добавлена корректно
     if ! sudo grep -q "-A ufw-before-input -p icmp --icmp-type source-quench -j DROP" "$RULES_FILE"; then
